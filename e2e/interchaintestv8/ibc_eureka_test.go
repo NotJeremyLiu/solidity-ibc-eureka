@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"os"
@@ -1004,7 +1005,36 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		path := ibchostv2.PacketCommitmentKey(returnPacket.SourceChannel, uint64(returnPacket.Sequence))
 		storageProofBz := s.getCommitmentProof(path)
 
-		_, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &channeltypesv2.MsgRecvPacket{
+		var storageProof ethereumligthclient.StorageProof
+		simd.Config().EncodingConfig.Codec.MustUnmarshal(storageProofBz, &storageProof)
+		_, unionClientState := s.GetUnionClientState(ctx, simd, s.EthereumLightClientID)
+		_, unionConsensusState := s.GetUnionConsensusState(ctx, simd, s.EthereumLightClientID, clienttypes.Height{
+			RevisionNumber: 0,
+			RevisionHeight: s.LastEtheruemLightClientUpdate,
+		})
+		ethClientStateJson, err := json.MarshalIndent(struct {
+			Path           string
+			StorageProof   ethereumligthclient.StorageProof
+			ProofHeight    clienttypes.Height
+			ClientState    ethereumligthclient.ClientState
+			ConsensusState ethereumligthclient.ConsensusState
+		}{
+			Path:         hex.EncodeToString(path),
+			StorageProof: storageProof,
+			ProofHeight: clienttypes.Height{
+				RevisionNumber: 0,
+				RevisionHeight: s.LastEtheruemLightClientUpdate,
+			},
+			ClientState:    unionClientState,
+			ConsensusState: unionConsensusState,
+		}, "", "    ")
+		s.Require().NoError(err)
+		fixtureFileName := fmt.Sprintf("%s/commitment_proof_fixture.json", testvalues.SP1ICS07FixturesDir)
+		s.Require().NoError(
+			os.WriteFile(fixtureFileName, ethClientStateJson, 0o600),
+		)
+
+		_, err = s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &channeltypesv2.MsgRecvPacket{
 			Packet: channeltypesv2.Packet{
 				Sequence:           uint64(returnPacket.Sequence),
 				SourceChannel:      returnPacket.SourceChannel,

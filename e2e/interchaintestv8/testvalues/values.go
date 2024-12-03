@@ -59,6 +59,8 @@ const (
 	SolidityFixturesDir = "test/solidity-ibc/fixtures/"
 	// SP1ICS07FixturesDir is the directory where the SP1ICS07 fixtures are stored.
 	SP1ICS07FixturesDir = "test/sp1-ics07/fixtures"
+	// EthereumLightClientFixturesDir is the directory where the Etehreum Light Client fixtures are stored.
+	EthereumLightClientFixturesDir = "fixtures"
 	// RelayerConfigFilePath is the path to generate the relayer config file.
 	RelayerConfigFilePath = "programs/relayer/config.json"
 	// E2EDeployScriptPath is the path to the E2E deploy script.

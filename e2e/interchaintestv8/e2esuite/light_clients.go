@@ -3,6 +3,7 @@ package e2esuite
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -182,8 +183,16 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 	wasmClientState, _ := s.GetUnionClientState(ctx, simd, s.EthereumLightClientID)
 	_, unionConsensusState = s.GetUnionConsensusState(ctx, simd, s.EthereumLightClientID, wasmClientState.LatestHeight)
 
-	for _, header := range headers {
+	for i, header := range headers {
 		logHeader("Updating eth light client", header)
+
+		headerJson, err := json.MarshalIndent(header, "", "  ")
+		s.Require().NoError(err)
+		fixtureFileName := fmt.Sprintf("%s/client_update_%d.json", testvalues.EthereumLightClientFixturesDir, i)
+		s.Require().NoError(
+			os.WriteFile(fixtureFileName, headerJson, 0o600),
+		)
+
 		headerBz := simd.Config().EncodingConfig.Codec.MustMarshal(&header)
 		wasmHeader := ibcwasmtypes.ClientMessage{
 			Data: headerBz,
@@ -249,6 +258,13 @@ func (s *TestSuite) createUnionLightClient(ctx context.Context, simdRelayerUser 
 		IbcContractAddress: ethcommon.FromHex(ibcContractAddress),
 	}
 
+	ethClientStateJson, err := json.MarshalIndent(ethClientState, "", "  ")
+	s.Require().NoError(err)
+	fixtureFileName := fmt.Sprintf("%s/initial_client_state_fixture.json", testvalues.EthereumLightClientFixturesDir)
+	s.Require().NoError(
+		os.WriteFile(fixtureFileName, ethClientStateJson, 0o600),
+	)
+
 	ethClientStateBz := simd.Config().EncodingConfig.Codec.MustMarshal(&ethClientState)
 	wasmClientChecksum, err := hex.DecodeString(unionClientChecksum)
 	s.Require().NoError(err)
@@ -293,6 +309,13 @@ func (s *TestSuite) createUnionLightClient(ctx context.Context, simdRelayerUser 
 		CurrentSyncCommittee: ethcommon.FromHex(bootstrap.Data.CurrentSyncCommittee.AggregatePubkey),
 		NextSyncCommittee:    ethcommon.FromHex(clientUpdates[0].Data.NextSyncCommittee.AggregatePubkey),
 	}
+
+	ethConsensusStateJson, err := json.MarshalIndent(ethClientState, "", "  ")
+	s.Require().NoError(err)
+	fixtureFileName = fmt.Sprintf("%s/initial_consensus_state_fixture.json", testvalues.EthereumLightClientFixturesDir)
+	s.Require().NoError(
+		os.WriteFile(fixtureFileName, ethConsensusStateJson, 0o600),
+	)
 
 	ethConsensusStateBz := simd.Config().EncodingConfig.Codec.MustMarshal(&ethConsensusState)
 	consensusState := ibcwasmtypes.ConsensusState{
