@@ -420,7 +420,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	var recvAck []byte
 	var denomOnCosmos transfertypes.Denom
 	s.Require().True(s.Run("Receive packets on Cosmos chain", func() {
-		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, sendBlockNumber, simdRelayerUser)
+		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, sendBlockNumber, simdRelayerUser, "recv")
 
 		recvPacketMsgs := make([]sdk.Msg, numOfTransfers)
 		for i := 0; i < numOfTransfers; i++ {
@@ -695,7 +695,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	}))
 
 	s.Require().True(s.Run("Acknowledge packets on Cosmos chain", func() {
-		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, recvBlockNumber, simdRelayerUser)
+		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, recvBlockNumber, simdRelayerUser, "ack")
 
 		ackMsgs := make([]sdk.Msg, numOfTransfers)
 		for i := 0; i < numOfTransfers; i++ {
@@ -913,7 +913,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	}))
 
 	s.Require().True(s.Run("Acknowledge packet on Cosmos chain", func() {
-		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, recvBlockNumber, simdRelayerUser)
+		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, recvBlockNumber, simdRelayerUser, "ack")
 
 		path := ibchostv2.PacketAcknowledgementKey(sendPacket.DestinationChannel, sendPacket.Sequence)
 		storageProofBz := s.getCommitmentProof(path)
@@ -1000,7 +1000,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 
 	var cosmosReceiveAck []byte
 	s.Require().True(s.Run("Receive packet on Cosmos chain", func() {
-		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, sendBlockNumber, simdRelayerUser)
+		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, sendBlockNumber, simdRelayerUser, "recv")
 
 		path := ibchostv2.PacketCommitmentKey(returnPacket.SourceChannel, uint64(returnPacket.Sequence))
 		storageProofBz := s.getCommitmentProof(path)
@@ -1013,13 +1013,13 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			RevisionHeight: s.LastEtheruemLightClientUpdate,
 		})
 		ethClientStateJson, err := json.MarshalIndent(struct {
-			Path           string
-			StorageProof   ethereumligthclient.StorageProof
-			ProofHeight    clienttypes.Height
-			ClientState    ethereumligthclient.ClientState
-			ConsensusState ethereumligthclient.ConsensusState
+			Path           []byte                             `json:"path"`
+			StorageProof   ethereumligthclient.StorageProof   `json:"storage_proof"`
+			ProofHeight    clienttypes.Height                 `json:"proof_height"`
+			ClientState    ethereumligthclient.ClientState    `json:"client_state"`
+			ConsensusState ethereumligthclient.ConsensusState `json:"consensus_state"`
 		}{
-			Path:         hex.EncodeToString(path),
+			Path:         path,
 			StorageProof: storageProof,
 			ProofHeight: clienttypes.Height{
 				RevisionNumber: 0,
@@ -1029,7 +1029,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			ConsensusState: unionConsensusState,
 		}, "", "    ")
 		s.Require().NoError(err)
-		fixtureFileName := fmt.Sprintf("%s/commitment_proof_fixture.json", testvalues.SP1ICS07FixturesDir)
+		fixtureFileName := fmt.Sprintf("%s/commitment_proof_fixture.json", testvalues.EthereumLightClientFixturesDir)
 		s.Require().NoError(
 			os.WriteFile(fixtureFileName, ethClientStateJson, 0o600),
 		)

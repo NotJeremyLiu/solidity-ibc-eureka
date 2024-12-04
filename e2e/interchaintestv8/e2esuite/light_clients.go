@@ -34,7 +34,7 @@ func (s *TestSuite) CreateEthereumLightClient(ctx context.Context, simdRelayerUs
 	}
 }
 
-func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress string, minimumUpdateTo int64, simdRelayerUser ibc.Wallet) {
+func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress string, minimumUpdateTo int64, simdRelayerUser ibc.Wallet, writeFixtureName string) {
 	if s.ethTestnetType != testvalues.EthTestnetTypePoS {
 		return
 	}
@@ -188,7 +188,7 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 
 		headerJson, err := json.MarshalIndent(header, "", "  ")
 		s.Require().NoError(err)
-		fixtureFileName := fmt.Sprintf("%s/client_update_%d.json", testvalues.EthereumLightClientFixturesDir, i)
+		fixtureFileName := fmt.Sprintf("%s/client_update_%s_%d.json", testvalues.EthereumLightClientFixturesDir, writeFixtureName, i)
 		s.Require().NoError(
 			os.WriteFile(fixtureFileName, headerJson, 0o600),
 		)
@@ -310,7 +310,7 @@ func (s *TestSuite) createUnionLightClient(ctx context.Context, simdRelayerUser 
 		NextSyncCommittee:    ethcommon.FromHex(clientUpdates[0].Data.NextSyncCommittee.AggregatePubkey),
 	}
 
-	ethConsensusStateJson, err := json.MarshalIndent(ethClientState, "", "  ")
+	ethConsensusStateJson, err := json.MarshalIndent(ethConsensusState, "", "  ")
 	s.Require().NoError(err)
 	fixtureFileName = fmt.Sprintf("%s/initial_consensus_state_fixture.json", testvalues.EthereumLightClientFixturesDir)
 	s.Require().NoError(
