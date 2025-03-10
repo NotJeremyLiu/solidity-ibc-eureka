@@ -43,6 +43,7 @@ func GetTransactOpts(ctx context.Context, ethClient *ethclient.Client, chainID *
 		panic(err)
 	}
 	txOpts.GasPrice = suggestedGasPrice
+	txOpts.GasPrice = new(big.Int).Add(suggestedGasPrice, big.NewInt(30000000000)) // Add 20 Gwei
 
 	nonce, err := ethClient.PendingNonceAt(context.Background(), fromAddress)
 	if err != nil {
