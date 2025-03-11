@@ -1,0 +1,23 @@
+{
+    "dest_callback": {
+        "address": "lom1nc5tatafv6eyq7llkr2gv50ff9e22mnf70qgjlv737ktmt4eswrqfufmpf"
+    },
+    "wasm": {
+        "contract": "lom14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s9fver0",
+        "msg": {
+            "execute_swap_operations": {
+                "operations": [
+                    {
+                        "mantra_swap": {
+                            "pool_identifier": "",
+                            "token_in_denom": "ibc/CA99FBBE626DB68588B2BB86750F0A95762B8822E82B82D4AB9654083E54DE5D",
+                            "token_out_denom": "slbtc"
+                        }
+                    }
+                ],
+                "minimum_receive": "1",
+                "receiver": "lom1nc5tatafv6eyq7llkr2gv50ff9e22mnf70qgjlv737ktmt4eswrqfufmpf"
+            }
+        }
+    }
+}

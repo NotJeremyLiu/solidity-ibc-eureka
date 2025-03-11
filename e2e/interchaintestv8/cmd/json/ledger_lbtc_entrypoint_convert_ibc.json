@@ -1,0 +1,42 @@
+{
+    "dest_callback": {
+        "address": "lom1k9z7fvd3307ynapnk5gjffn706mz8qck502f7qwgt2a2a35kgqlqr0mc4j"
+    },
+    "wasm": {
+        "contract": "lom1rqw2gr0ajp0ajrluftj0kut70kvhu32yj5are47hqmdfs6fyrcas9tlrl9",
+        "msg": {
+            "swap_and_action": {
+                "user_swap": {
+                    "swap_exact_asset_in": {
+                        "swap_venue_name": "testnet-ledger-lbtc-convert",
+                        "operations": [
+                            {
+                                "pool": "",
+                                "denom_in": "ibc/CA99FBBE626DB68588B2BB86750F0A95762B8822E82B82D4AB9654083E54DE5D",
+                                "denom_out": "slbtc"
+                            }
+                        ]
+                    }
+                },
+                "min_asset": {
+                    "native": {
+                        "denom": "slbtc",
+                        "amount": "1"
+                    }
+                },
+                "timeout_timestamp": 1741755711295674400,
+                "post_swap_action": {
+                    "ibc_transfer": {
+                        "ibc_info": {
+                            "source_channel": "channel-0",
+                            "receiver": "bbn18g8eu8x2pj63tmt620lhllxkzy5ayrk7z36z98",
+                            "memo": "",
+                            "recover_address": "lom18g8eu8x2pj63tmt620lhllxkzy5ayrk7pm6seh"
+                        }
+                    }
+                },
+                "affiliates": []
+            }
+        }
+    }
+}
