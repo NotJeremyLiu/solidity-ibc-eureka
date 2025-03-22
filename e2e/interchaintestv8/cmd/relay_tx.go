@@ -8,28 +8,24 @@ import (
 
 	"fmt"
 
-	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 
+	"cosmossdk.io/log"
+	dbm "github.com/cosmos/cosmos-db"
+	"github.com/cosmos/cosmos-sdk/client/tx"
+	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
-	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
+	xauthsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
+	accounttypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/gogoproto/proto"
+	"github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10/testing/simapp"
 	"github.com/spf13/cobra"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cmd/utils"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
-
-	clientTx "github.com/cosmos/cosmos-sdk/client/tx"
-	"github.com/cosmos/cosmos-sdk/codec"
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	cosmosTx "github.com/cosmos/cosmos-sdk/types/tx"
-	authTx "github.com/cosmos/cosmos-sdk/x/auth/tx"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-
-	ibctypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 )
 
 func RelayTxCmd() *cobra.Command {
@@ -69,7 +65,6 @@ func RelayTxCmd() *cobra.Command {
 
 func relayFromEthToCosmos(ctx context.Context, cmd *cobra.Command, txHashHexStr string) error {
 	fmt.Println("Relaying from Ethereum to Cosmos")
-
 	// get the flags we need
 	cosmosRPC, _ := cmd.Flags().GetString(FlagCosmosRPC)
 	if cosmosRPC == "" {
@@ -96,37 +91,24 @@ func relayFromEthToCosmos(ctx context.Context, cmd *cobra.Command, txHashHexStr 
 	}
 
 	// Set up everything we need to relay
-	// db := dbm.NewMemDB()
-	// app := simapp.NewUnitTestSimApp(log.NewNopLogger(), db, nil, false, simtestutil.EmptyAppOptions{}, nil)
+	db := dbm.NewMemDB()
+	app := simapp.NewUnitTestSimApp(log.NewNopLogger(), db, nil, false, simtestutil.EmptyAppOptions{}, nil)
 
 	cosmosRelayerPrivateKeyStr := os.Getenv(EnvRelayerWallet)
 	if cosmosRelayerPrivateKeyStr == "" {
 		return fmt.Errorf("%s env var not set", EnvRelayerWallet)
 	}
-	// cosmosRelayerPrivateKey, err := utils.CosmosPrivateKeyFromHex(cosmosRelayerPrivateKeyStr)
-	// if err != nil {
-	// 	return err
-	// }
-
-	privKeyBytes, err := hex.DecodeString(cosmosRelayerPrivateKeyStr)
+	cosmosRelayerPrivateKey, err := utils.CosmosPrivateKeyFromHex(cosmosRelayerPrivateKeyStr)
 	if err != nil {
-		return fmt.Errorf("Error decoding private key hex, not adding signer info: %v", err)
-	}
-	cosmosRelayerPrivateKey := &secp256k1.PrivKey{}
-	if err := cosmosRelayerPrivateKey.UnmarshalAmino(privKeyBytes); err != nil {
-		return fmt.Errorf("Error unmarshaling private key bytes, not adding signer info: %v", err)
+		return err
 	}
 
-	// cosmosAddress := sdk.AccAddress(cosmosRelayerPrivateKey.PubKey().Address())
+	cosmosAddress := sdk.AccAddress(cosmosRelayerPrivateKey.PubKey().Address())
 
 	grpcConn, err := utils.GetTLSGRPC(cosmosGrpcAddress)
 	if err != nil {
 		return err
 	}
-	authQueryClient := authtypes.NewQueryClient(grpcConn)
-	txClient := cosmosTx.NewServiceClient(grpcConn)
-	protoCodec := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
-	txConfig := authTx.NewTxConfig(protoCodec, authTx.DefaultSignModes)
 
 	txHash := ethcommon.HexToHash(txHashHexStr)
 
@@ -151,94 +133,58 @@ func relayFromEthToCosmos(ctx context.Context, cmd *cobra.Command, txHashHexStr 
 		return err
 	}
 
-	fmt.Println("txBody: ", txBody)
-
 	if len(txBody.Messages) == 0 {
 		return fmt.Errorf("no messages to relay")
 	}
 
-	fmt.Println("txBody.Messages: ", txBody.Messages)
-	fmt.Println("Len(txBody.Messages): ", len(txBody.Messages))
-
-	// var msgs []sdk.Msg
-	// for _, msg := range txBody.Messages {
-	// 	var sdkMsg sdk.Msg
-	// 	if err := app.InterfaceRegistry().UnpackAny(msg, &sdkMsg); err != nil {
-	// 		return err
-	// 	}
-
-	// 	msgs = append(msgs, sdkMsg)
-	// }
-
 	var msgs []sdk.Msg
 	for _, msg := range txBody.Messages {
-		if msg.TypeUrl == "/ibc.core.channel.v2.MsgRecvPacket" {
-			receiveMsg := &ibctypes.MsgRecvPacket{}
-			if err := proto.Unmarshal(msg.Value, receiveMsg); err != nil {
-				return err
-			}
-			msgs = append(msgs, receiveMsg)
+		var sdkMsg sdk.Msg
+		if err := app.InterfaceRegistry().UnpackAny(msg, &sdkMsg); err != nil {
+			return err
 		}
+
+		msgs = append(msgs, sdkMsg)
 	}
-
-	fmt.Println("msgs: ", msgs)
-
-	fmt.Println("msg: ", msgs[0].String())
-
-	bech32Address := "lom127tlxptdqt0pe25mq5cf8ju68lsa9yxynn90rj"
 
 	// Get account for sequence and account number
-	// accountClient := accounttypes.NewQueryClient(grpcConn)
-	// accountRes, err := accountClient.AccountInfo(ctx, &accounttypes.QueryAccountInfoRequest{Address: bech32Address})
-	// if err != nil {
-	// 	return fmt.Errorf("failed to get account info: %w", err)
-	// }
-	// fmt.Println("AccountRes: ", accountRes)
-
-	accReq := &authtypes.QueryAccountRequest{
-		Address: bech32Address,
-	}
-	acc, err := authQueryClient.Account(ctx, accReq)
+	accountClient := accounttypes.NewQueryClient(grpcConn)
+	accountRes, err := accountClient.AccountInfo(ctx, &accounttypes.QueryAccountInfoRequest{Address: cosmosAddress.String()})
 	if err != nil {
 		return fmt.Errorf("failed to get account info: %w", err)
 	}
-	account := authtypes.BaseAccount{}
-	if err := account.Unmarshal(acc.Account.Value); err != nil {
-		return fmt.Errorf("failed to unmarshal account: %w", err)
-	}
 
-	txBuilder := txConfig.NewTxBuilder()
-
-	//txBuilder := app.TxConfig().NewTxBuilder()
+	txBuilder := app.TxConfig().NewTxBuilder()
 	txBuilder.SetGasLimit(2000000)
 	txBuilder.SetMsgs(msgs...)
-	txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewInt64Coin("ulom", 200000000)))
+	txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewInt64Coin("uatom", 2000000)))
 
-	// sigV2 := signing.SignatureV2{
-	// 	PubKey: cosmosRelayerPrivateKey.PubKey(),
-	// 	Data: &signing.SingleSignatureData{
-	// 		//SignMode:  signing.SignMode(app.TxConfig().SignModeHandler().DefaultMode()),
-	// 		SignMode:  signing.SignMode(txConfig.SignModeHandler().DefaultMode()),
-	// 		Signature: nil,
-	// 	},
-	// 	Sequence: accountRes.Info.Sequence,
-	// }
-
-	signerData := authsigning.SignerData{
-		ChainID:       cosmosChainID,
-		AccountNumber: account.GetAccountNumber(),
-		Sequence:      account.GetSequence(),
-		PubKey:        cosmosRelayerPrivateKey.PubKey(),
-		Address:       bech32Address,
+	sigV2 := signing.SignatureV2{
+		PubKey: cosmosRelayerPrivateKey.PubKey(),
+		Data: &signing.SingleSignatureData{
+			SignMode:  signing.SignMode(app.TxConfig().SignModeHandler().DefaultMode()),
+			Signature: nil,
+		},
+		Sequence: accountRes.Info.Sequence,
 	}
-	sigV2, err := clientTx.SignWithPrivKey(
-		context.Background(),
-		signing.SignMode(txConfig.SignModeHandler().DefaultMode()),
+	err = txBuilder.SetSignatures(sigV2)
+	if err != nil {
+		return fmt.Errorf("failed to set signature: %w", err)
+	}
+
+	signerData := xauthsigning.SignerData{
+		Address:       cosmosAddress.String(),
+		ChainID:       cosmosChainID,
+		AccountNumber: accountRes.Info.AccountNumber,
+	}
+	sigV2, err = tx.SignWithPrivKey(
+		ctx,
+		signing.SignMode(app.TxConfig().SignModeHandler().DefaultMode()),
 		signerData,
 		txBuilder,
 		cosmosRelayerPrivateKey,
-		txConfig,
-		account.GetSequence(),
+		app.TxConfig(),
+		accountRes.Info.Sequence,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to sign with priv key: %w", err)
@@ -248,35 +194,13 @@ func relayFromEthToCosmos(ctx context.Context, cmd *cobra.Command, txHashHexStr 
 		return fmt.Errorf("failed to set signature: %w", err)
 	}
 
-	// signerData := xauthsigning.SignerData{
-	// 	Address:       bech32Address,
-	// 	ChainID:       cosmosChainID,
-	// 	AccountNumber: accountRes.Info.AccountNumber,
-	// }
-	// sigV2, err = tx.SignWithPrivKey(
-	// 	ctx,
-	// 	signing.SignMode(txConfig.SignModeHandler().DefaultMode()),
-	// 	signerData,
-	// 	txBuilder,
-	// 	cosmosRelayerPrivateKey,
-	// 	txConfig,
-	// 	accountRes.Info.Sequence,
-	// )
-	// if err != nil {
-	// 	return fmt.Errorf("failed to sign with priv key: %w", err)
-	// }
-	// err = txBuilder.SetSignatures(sigV2)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to set signature: %w", err)
-	// }
-
 	// Generated Protobuf-encoded bytes.
-	txBytes, err := txConfig.TxEncoder()(txBuilder.GetTx())
+	txBytes, err := app.TxConfig().TxEncoder()(txBuilder.GetTx())
 	if err != nil {
 		return fmt.Errorf("failed to encode tx: %w", err)
 	}
 
-	// txClient := txtypes.NewServiceClient(grpcConn)
+	txClient := txtypes.NewServiceClient(grpcConn)
 	// We then call the BroadcastTx method on this client.
 	grpcRes, err := txClient.BroadcastTx(
 		ctx,
@@ -375,7 +299,7 @@ func relayFromCosmosToEth(ctx context.Context, cmd *cobra.Command, txHash string
 		Nonce:     txOpts.Nonce.Uint64(),
 		GasTipCap: txOpts.GasTipCap,
 		GasFeeCap: txOpts.GasFeeCap,
-		Gas:       700_000,
+		Gas:       15_000_000,
 		To:        &ics26Address,
 		Data:      resp.Tx,
 	})

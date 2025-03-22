@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -13,8 +14,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cmd/utils"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
-
-	"github.com/cosmos/solidity-ibc-eureka/abigen/skipeurekahandler"
 )
 
 func TransferFromEth() *cobra.Command {
@@ -44,7 +43,7 @@ func TransferFromEth() *cobra.Command {
 			if ics20Str == "" {
 				return fmt.Errorf("ics20 address flag not set")
 			}
-			// ics20Address := ethcommon.HexToAddress(ics20Str)
+			ics20Address := ethcommon.HexToAddress(ics20Str)
 
 			ethPrivateKeyStr := os.Getenv(EnvEthPrivateKey)
 			if ethPrivateKeyStr == "" {
@@ -56,7 +55,7 @@ func TransferFromEth() *cobra.Command {
 				return fmt.Errorf("source client flag not set")
 			}
 
-			// transferWithCallbacksMemo, _ := cmd.Flags().GetBool(FlagTransferWithCallbacksMemo)
+			transferWithCallbacksMemo, _ := cmd.Flags().GetBool(FlagTransferWithCallbacksMemo)
 
 			// Set up everything needed to send the transfer
 			ethClient, err := ethclient.Dial(ethRPC)
@@ -64,7 +63,7 @@ func TransferFromEth() *cobra.Command {
 				return fmt.Errorf("failed to connect to Ethereum RPC: %w", err)
 			}
 
-			// ics20Contract, err := ics20transfer.NewContract(ics20Address, ethClient)
+			ics20Contract, err := ics20transfer.NewContract(ics20Address, ethClient)
 
 			erc20Contract, err := erc20.NewContract(erc20Address, ethClient)
 
@@ -82,7 +81,7 @@ func TransferFromEth() *cobra.Command {
 			if IsVerbose(cmd) {
 				fmt.Printf("Approve TransactOpts: %+v\n", txOpts)
 			}
-			tx, err := erc20Contract.Approve(txOpts, ethcommon.HexToAddress("0x92470162374A6D185758982356833d1aFfFd3b03"), transferAmount)
+			tx, err := erc20Contract.Approve(txOpts, ics20Address, transferAmount)
 			if err != nil {
 				return fmt.Errorf("approve tx call failed: %w", err)
 			}
@@ -93,78 +92,31 @@ func TransferFromEth() *cobra.Command {
 				cmd.Printf("Approve TX (%s) was not confirmed within time limit, but it was also not rejected. We'll continue anyway.\n", tx.Hash().String())
 			}
 
-			fmt.Printf("Approved ICS20 contract (%s) to spend ERC20 (%s) from %s\n", ethcommon.HexToAddress("0x92470162374A6D185758982356833d1aFfFd3b03"), erc20Address.Hex(), ethereumUserAddress.Hex())
+			fmt.Printf("Approved ICS20 contract (%s) to spend ERC20 (%s) from %s\n", ics20Address.Hex(), erc20Address.Hex(), ethereumUserAddress.Hex())
 
 			timeout := uint64(time.Now().Add(1 * time.Hour).Unix())
-			// sendTransferMsg := ics20transfer.IICS20TransferMsgsSendTransferMsg{
-			// 	Denom:            erc20Address,
-			// 	Amount:           transferAmount,
-			// 	Receiver:         to,
-			// 	SourceClient:     sourceClientID,
-			// 	DestPort:         "transfer",
-			// 	TimeoutTimestamp: timeout,
-			// 	Memo:             "",
-			// }
-			// if transferWithCallbacksMemo {
-			// 	sendTransferMsg.Memo = `
-			// 	{
-			// 		"dest_callback": {
-			// 			"address": "lom1nc5tatafv6eyq7llkr2gv50ff9e22mnf70qgjlv737ktmt4eswrqfufmpf"
-			// 		},
-			// 		"wasm": {
-			// 			"contract": "lom14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s9fver0",
-			// 			"msg": {
-			// 				"execute_swap_operations": {
-			// 					"operations": [
-			// 						{
-			// 							"mantra_swap": {
-			// 								"pool_identifier": "",
-			// 								"token_in_denom": "ibc/CA99FBBE626DB68588B2BB86750F0A95762B8822E82B82D4AB9654083E54DE5D",
-			// 								"token_out_denom": "slbtc"
-			// 							}
-			// 						}
-			// 					],
-			// 					"minimum_receive": "1",
-			// 					"receiver": "lom1nc5tatafv6eyq7llkr2gv50ff9e22mnf70qgjlv737ktmt4eswrqfufmpf"
-			// 				}
-			// 			}
-			// 		}
-			// 	}`
-			// }
-
+			sendTransferMsg := ics20transfer.IICS20TransferMsgsSendTransferMsg{
+				Denom:            erc20Address,
+				Amount:           transferAmount,
+				Receiver:         to,
+				SourceClient:     sourceClientID,
+				DestPort:         "transfer",
+				TimeoutTimestamp: timeout,
+				Memo:             "",
+			}
+			if transferWithCallbacksMemo {
+				sendTransferMsg.Memo = `{"dest_callback": {"address":"cosmos1nc5tatafv6eyq7llkr2gv50ff9e22mnf70qgjlv737ktmt4eswrqez7la9"}}`
+			}
 			txOpts = utils.GetTransactOpts(ctx, ethClient, ethChainID, ethPrivKey)
 			txOpts.GasPrice = nil
 			if IsVerbose(cmd) {
 				fmt.Printf("SendTransfer TransactOpts: %+v\n", txOpts)
 			}
-
-			skipEurekaHandler, err := skipeurekahandler.NewEurekaHandler(ethcommon.HexToAddress("0x92470162374A6D185758982356833d1aFfFd3b03"), ethClient)
+			tx, err = ics20Contract.SendTransfer(txOpts, sendTransferMsg)
 			if err != nil {
-				return fmt.Errorf("failed to create skip eureka handler: %w", err)
+				fmt.Printf("tx %+v\n", tx)
+				return fmt.Errorf("send transfer tx unsuccessful\nmsg %+v\nerr: %w", sendTransferMsg, err)
 			}
-
-			tx, err = skipEurekaHandler.LombardTransfer(txOpts, transferAmount, skipeurekahandler.IEurekaHandlerTransferParams{
-				Token:            erc20Address,
-				Recipient:        to,
-				SourceClient:     sourceClientID,
-				DestPort:         "transfer",
-				TimeoutTimestamp: timeout,
-				Memo:             "",
-			}, skipeurekahandler.IEurekaHandlerFees{
-				RelayFee: big.NewInt(0),
-				// TODO: Set this
-				// RelayFeeRecipient: ethcommon.HexToAddress("0x0000000000000000000000000000000000000000"),
-				QuoteExpiry: timeout,
-			})
-			if err != nil {
-				return fmt.Errorf("send transfer tx unsuccessful\nerr: %w", err)
-			}
-
-			// tx, err = ics20Contract.SendTransfer(txOpts, sendTransferMsg)
-			// if err != nil {
-			// 	fmt.Printf("tx %+v\n", tx)
-			// 	return fmt.Errorf("send transfer tx unsuccessful\nmsg %+v\nerr: %w", sendTransferMsg, err)
-			// }
 			receipt = utils.GetTxReciept(ctx, ethClient, tx.Hash())
 			if receipt != nil && receipt.Status != ethtypes.ReceiptStatusSuccessful {
 				return fmt.Errorf("send transfer tx (%s) unsuccessful %+v", tx.Hash().String(), receipt)

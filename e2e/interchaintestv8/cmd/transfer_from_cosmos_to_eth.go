@@ -125,7 +125,7 @@ func TransferFromCosmos() *cobra.Command {
 			txBuilder := app.TxConfig().NewTxBuilder()
 			txBuilder.SetGasLimit(200000)
 			txBuilder.SetMsgs(msg)
-			txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewInt64Coin("ulom", 200000)))
+			txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewInt64Coin("uatom", 200000)))
 
 			sigV2 := signing.SignatureV2{
 				PubKey: cosmosPrivateKey.PubKey(),

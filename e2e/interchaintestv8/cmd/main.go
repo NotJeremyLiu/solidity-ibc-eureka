@@ -20,13 +20,13 @@ const (
 	DefaultErc20Address = "0xA4ff49eb6E2Ea77d7D8091f1501385078642603f"
 
 	FlagCosmosRPC    = "cosmos-rpc"
-	DefaultCosmosRPC = "https://node0.ibc.lb-mgt.com:443"
+	DefaultCosmosRPC = "https://eureka-devnet-02-node-01-rpc.dev.skip.build:443"
 
 	FlagCosmosGRPC    = "cosmos-grpc"
-	DefaultCosmosGRPC = "node0-grpc.ibc.lb-mgt.com:443"
+	DefaultCosmosGRPC = "eureka-devnet-02-node-01-grpc.dev.skip.build:443"
 
 	FlagCosmosChainID    = "cosmos-chain-id"
-	DefaultCosmosChainID = "localnet"
+	DefaultCosmosChainID = "eureka-hub-dev-5"
 
 	FlagEthChainID    = "ethereum-chain-id"
 	DefaultEthChainID = "11155111"
@@ -36,13 +36,13 @@ const (
 	FlagEthClientIDOnCosmos = "client-id-on-cosmos"
 
 	// TODO: Add the non-mock versions of these
-	MockTendermintClientID = "ledger-testnet-0"
-	MockEthClientID        = "08-wasm-0"
+	MockTendermintClientID = "hub-devnet-sp1-g16-0"
+	MockEthClientID        = "08-wasm-4"
 
 	EnvEthPrivateKey    = "ETH_PRIVATE_KEY"
 	EnvCosmosPrivateKey = "COSMOS_PRIVATE_KEY"
 
-	RelayerURL = "eureka-hub-devnet-03-relayer-02.dev.skip.build:443"
+	RelayerURL = "eureka-devnet-02-relayer-01.dev.skip.build:443"
 
 	EnvRelayerWallet = "RELAYER_WALLET"
 
@@ -63,15 +63,6 @@ func RootCmd() *cobra.Command {
 		Use:   "eureka-cli",
 		Short: "IBC Eureka CLI",
 	}
-
-	// // sdk.GetConfig().SetBech32PrefixForAccount(Bech32AccAddrPrefix, Bech32AccAddrPrefix+"pub")
-	// config := sdk.GetConfig()
-	// config.SetBech32PrefixForAccount("lom", "lom"+"pub")
-	// // config.SetBech32PrefixForValidator(Bech32AccAddrPrefix, yourBech32PrefixValPub)
-	// // config.SetBech32PrefixForConsensusNode(yourBech32PrefixConsAddr, yourBech32PrefixConsPub)
-	// // config.SetPurpose(yourPurpose)
-	// // config.SetCoinType(yourCoinType)
-	// config.Seal()
 
 	rootCmd.AddCommand(TransferFromEth())
 	rootCmd.AddCommand(RelayTxCmd())
